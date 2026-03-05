@@ -2,9 +2,8 @@ pipeline {
     agent any
 
     tools {
-        nodejs 'NodeJS-20'   
-
-    stages {
+        nodejs 'NodeJS-20'  
+        } 
         stage('Checkout') {
             steps {
                 git branch: 'main', url: 'https://github.com/poVvisal/FoodExpress.git'
