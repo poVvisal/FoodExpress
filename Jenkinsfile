@@ -1,6 +1,9 @@
 pipeline {
     agent any
 
+    tools {
+        nodejs 'NodeJS-20'   
+
     stages {
         stage('Checkout') {
             steps {
@@ -10,7 +13,7 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                sh 'npm install'
+                sh 'npm install'   // works now because NodeJS is in PATH
             }
         }
 
