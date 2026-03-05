@@ -2,8 +2,10 @@ pipeline {
     agent any
 
     tools {
-        nodejs 'NodeJS-20'  
-        } 
+        nodejs 'NodeJS-20'   
+    }
+
+    stages {
         stage('Checkout') {
             steps {
                 git branch: 'main', url: 'https://github.com/poVvisal/FoodExpress.git'
@@ -12,7 +14,7 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                sh 'npm install'   // works now because NodeJS is in PATH
+                sh 'npm install'   
             }
         }
 
