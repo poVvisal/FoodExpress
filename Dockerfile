@@ -1,7 +1,13 @@
 FROM node:18-alpine
-WORKDIR /usr/src/app
+
+WORKDIR /app
+
 COPY package*.json ./
-RUN npm install --omit=dev && npm cache clean --force
+
+RUN npm install
+
 COPY . .
+
 EXPOSE 3000
+
 CMD ["node", "index.js"]
