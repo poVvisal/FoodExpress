@@ -4,7 +4,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', url: "https://github.com/poVvisal/FoodExpress.git"
+                git branch: 'main', url: 'https://github.com/poVvisal/FoodExpress.git'
             }
         }
 
@@ -22,15 +22,15 @@ pipeline {
 
         stage('Docker Build') {
             steps {
-                sh 'docker build -t foodexpress- .'
+                sh 'docker build -t foodexpress-js .'
             }
         }
 
         stage('Deploy') {
             steps {
-                sh 'docker stop foodexpress- || true'
-                sh 'docker rm foodexpress- || true'
-                sh 'docker run -d --name foodexpress- -p 3000:3000 foodexpress-'
+                sh 'docker stop foodexpress-js || true'
+                sh 'docker rm foodexpress-js || true'
+                sh 'docker run -d --name foodexpress-js -p 3000:3000 foodexpress-js'
             }
         }
     }
