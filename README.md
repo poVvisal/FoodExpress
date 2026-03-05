@@ -38,6 +38,7 @@ Install these tools on your Linux machine (or Jenkins agent):
 - Node.js and npm
 - Docker Engine
 - Jenkins
+- `libatomic1` system library *(required by Node.js binaries on lean Linux installs)*
 
 Official references:
 - Node.js: https://nodejs.org/en/download
@@ -49,18 +50,27 @@ Official references:
 
 ## 3) Local Setup (Step by Step)
 
-### Step 1: Clone the repository
+### Step 1: Install system dependencies
+```bash
+sudo apt-get update
+sudo apt-get install -y git docker.io libatomic1
+```
+
+> ⚠️ `libatomic1` is required by Node.js v12+ binaries. Without it, `node` and `npm` will fail with:
+> `error while loading shared libraries: libatomic.so.1: cannot open shared object file`
+
+### Step 2: Clone the repository
 ```bash
 git clone https://github.com/poVvisal/FoodExpress.git
 cd FoodExpress
 ```
 
-### Step 2: Install dependencies
+### Step 3: Install dependencies
 ```bash
 npm install
 ```
 
-### Step 3: Run tests
+### Step 4: Run tests
 ```bash
 npm test
 ```
@@ -70,7 +80,7 @@ Expected behavior: syntax check passes using:
 node --check index.js
 ```
 
-### Step 4: Run the app locally
+### Step 5: Run the app locally
 ```bash
 node index.js
 ```
@@ -111,54 +121,120 @@ docker rm foodexpress-js
 
 ## 5) Jenkins Setup on Linux (Step by Step)
 
-### Step 1: Install Jenkins
+### Step 1: Install system dependencies
+Before installing Jenkins, ensure required system libraries are present:
+```bash
+sudo apt-get update
+sudo apt-get install -y libatomic1 docker.io
+```
+
+### Step 2: Install Jenkins
 Follow the official Jenkins Linux installation guide:
 - https://www.jenkins.io/doc/book/installing/linux/
 
-### Step 2: Start and enable Jenkins
+### Step 3: Start and enable Jenkins
 ```bash
 sudo systemctl enable jenkins
 sudo systemctl start jenkins
 sudo systemctl status jenkins
 ```
 
-### Step 3: Install suggested plugins
+### Step 4: Install suggested plugins
 During first-time setup, choose **Install suggested plugins**.
 
-### Step 4: Install required plugins for this project
-In Jenkins: **Manage Jenkins → Plugins**
+### Step 5: Install required plugins for this project
+In Jenkins: **Manage Jenkins → Plugins → Available Plugins**
 
 Install (or verify) these plugins:
 - Pipeline
 - Git
-- Docker Pipeline
+- **NodeJS** ← *required: auto-installs Node/npm into pipeline PATH*
+- **Docker Pipeline** ← *required: enables docker commands in Jenkinsfile*
 - Credentials Binding
 
 Optional but helpful:
 - Blue Ocean
 - Timestamper
 
-Official plugin index:
-- https://plugins.jenkins.io/
+Official plugin index: https://plugins.jenkins.io/
 
-### Step 5: Configure system tools
-In Jenkins: **Manage Jenkins → Tools**
+### Step 6: Configure NodeJS Tool
+In Jenkins: **Manage Jenkins → Tools → NodeJS installations → Add NodeJS**
 
-Configure:
-- Git installation
-- Node.js installation (if you use NodeJS plugin), or ensure `node`/`npm` are available on the Jenkins agent PATH
+| Field | Value |
+|---|---|
+| Name | `NodeJS-20` |
+| Install automatically | ✅ checked |
+| Version | `20.x` (or latest LTS) |
 
-### Step 6: Allow Jenkins to use Docker
+> ⚠️ The name `NodeJS-20` must exactly match what's in your `Jenkinsfile` under `tools { nodejs 'NodeJS-20' }`.
+
+### Step 7: Allow Jenkins to use Docker
 ```bash
 sudo usermod -aG docker jenkins
 sudo systemctl restart jenkins
 ```
 
-Then verify Docker access from Jenkins context.
+Verify Docker access:
+```bash
+# Check jenkins user is in docker group
+groups jenkins
+# Expected output includes: jenkins docker
+```
 
 ---
 
-## 6) Create the Jenkins Pipeline Job
+## 6) Jenkinsfile
+
+The pipeline uses the `tools` block to inject Node.js automatically — no manual PATH setup needed:
+
+```groovy
+pipeline {
+    agent any
+
+    tools {
+        nodejs 'NodeJS-20'   // must match name set in Manage Jenkins → Tools
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/poVvisal/FoodExpress.git'
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                sh 'npm install'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh 'npm test'
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                sh 'docker build -t foodexpress-js .'
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh 'docker stop foodexpress-js || true'
+                sh 'docker rm foodexpress-js || true'
+                sh 'docker run -d --name foodexpress-js -p 3000:3000 foodexpress-js'
+            }
+        }
+    }
+}
+```
+
+---
+
+## 7) Create the Jenkins Pipeline Job
 
 ### Step 1: New Item
 - Create a **Pipeline** job (example: `FoodExpress-Pipeline`)
@@ -182,7 +258,7 @@ Pipeline stages executed:
 
 ---
 
-## 7) Optional: Auto Build with GitHub Webhook
+## 8) Optional: Auto Build with GitHub Webhook
 
 ### Jenkins side
 - Enable trigger: **GitHub hook trigger for GITScm polling**
@@ -198,7 +274,23 @@ Official docs:
 
 ---
 
-## 8) Troubleshooting
+## 9) Troubleshooting
+
+### `node: error while loading shared libraries: libatomic.so.1`
+Cause: Missing system library required by Node.js binaries.
+
+Fix:
+```bash
+sudo apt-get install -y libatomic1
+```
+
+### `npm: not found` in Jenkins pipeline
+Cause: Node.js is not on the Jenkins agent PATH.
+
+Fix:
+- Install the **NodeJS** Jenkins plugin
+- Configure a NodeJS installation under **Manage Jenkins → Tools**
+- Add `tools { nodejs 'NodeJS-20' }` to your Jenkinsfile
 
 ### `npm test` fails with `Error: no test specified`
 Cause: old placeholder test script in `package.json`.
@@ -227,7 +319,7 @@ sudo systemctl restart jenkins
 
 ---
 
-## 9) Useful Official References
+## 10) Useful Official References
 
 - Jenkins User Documentation: https://www.jenkins.io/doc/
 - Jenkins Pipeline Book: https://www.jenkins.io/doc/book/pipeline/
@@ -239,9 +331,14 @@ sudo systemctl restart jenkins
 
 ---
 
-## 10) Quick Command Summary
+## 11) Quick Command Summary
 
 ```bash
+# System prereqs (run once on fresh server)
+sudo apt-get install -y libatomic1 docker.io
+sudo usermod -aG docker jenkins
+sudo systemctl restart jenkins
+
 # Local
 npm install
 npm test
