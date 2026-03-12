@@ -32,6 +32,9 @@ pipeline {
                 stage('Test') {
                     steps {
                         sh 'npm test'
+                        sh 'node --check backend/routes/menu.js'
+                        sh 'node --check backend/routes/orders.js'
+                        sh 'node --check backend/routes/restaurants.js'
                     }
                 }
 
